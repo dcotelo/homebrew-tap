@@ -2,11 +2,13 @@ name: bump
 
 # Follows cprof releases and updates the formula's url and sha256.
 #
-# This lives in the tap and pushes to the tap, so GITHUB_TOKEN is enough — no
-# personal access token to create, store, or rotate. The cost is that a release
-# is picked up on the next scheduled run rather than the moment it lands; run
-# the workflow by hand when that matters.
+# Pushing to this repo needs nothing but GITHUB_TOKEN, so the bump itself
+# carries no secret. cprof's release workflow signals a new release the moment
+# it publishes; the schedule stays as a backstop, so a dispatch that never
+# arrives costs a day of latency rather than a stale formula forever.
 on:
+  repository_dispatch:
+    types: [cprof-released]
   schedule:
     - cron: '17 9 * * *'
   workflow_dispatch:
