@@ -21,9 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Homebrew publishes this action and moves it in step with brew itself;
-      # pinning a tag here would pin against the runner's brew, not with it.
-      - uses: Homebrew/actions/setup-homebrew@master
+      # Pinned to a commit: Homebrew deprecated the master ref, and the warning
+      # becomes an error once Homebrew 5.2.0 ships. Bump deliberately.
+      - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
 
       # setup-homebrew already registers this repo as a tap pointing at its
       # GitHub URL, so `brew tap <path>` fails with a remote mismatch. Linking
@@ -62,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: Homebrew/actions/setup-homebrew@master
+      - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
 
       # setup-homebrew already registers this repo as a tap pointing at its
       # GitHub URL, so `brew tap <path>` fails with a remote mismatch. Linking

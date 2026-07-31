@@ -73,7 +73,7 @@ jobs:
             echo 'sha256 was not rewritten' >&2; exit 1; }
           git --no-pager diff -- Formula/cprof.rb
 
-      - uses: Homebrew/actions/setup-homebrew@master
+      - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
         if: steps.versions.outputs.changed == 'true'
 
       - name: point the tap at this checkout
