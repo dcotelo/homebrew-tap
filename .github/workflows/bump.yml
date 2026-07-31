@@ -90,7 +90,7 @@ jobs:
       - name: style and audit
         if: steps.versions.outputs.changed == 'true'
         run: |
-          brew style dcotelo/tap
+          brew style dcotelo/tap/cprof
           brew audit --strict --formula dcotelo/tap/cprof
 
       - name: install and test
