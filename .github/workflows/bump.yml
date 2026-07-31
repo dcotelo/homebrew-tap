@@ -23,6 +23,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Before anything writes to the checkout. This action taps the workspace
+      # and resets it, so a rewrite made earlier is silently discarded — which
+      # is exactly how the first two runs of this workflow failed.
+      - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
+
       - name: find the newest release, and what the formula pins
         id: versions
         env:
@@ -72,22 +77,6 @@ jobs:
           grep -q "sha256 \"${sha}\"" Formula/cprof.rb || {
             echo 'sha256 was not rewritten' >&2; exit 1; }
           git --no-pager diff -- Formula/cprof.rb
-
-      - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-        if: steps.versions.outputs.changed == 'true'
-
-      # A copy, not a symlink. ci.yml can link the workspace because it never
-      # commits; here brew's own git housekeeping on the tap reverted the
-      # uncommitted rewrite, and the push step then found nothing to commit.
-      # Verifying a copy leaves the workspace alone.
-      - name: copy this checkout into the tap
-        if: steps.versions.outputs.changed == 'true'
-        run: |
-          set -eu
-          dir="$(brew --repository)/Library/Taps/dcotelo/homebrew-tap"
-          rm -rf "$dir"
-          mkdir -p "$dir"
-          cp -R "$GITHUB_WORKSPACE"/. "$dir"/
 
       # The same gates ci.yml applies, run before the push rather than after,
       # because the push cannot trigger them.
