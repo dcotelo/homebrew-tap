@@ -76,14 +76,18 @@ jobs:
       - uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
         if: steps.versions.outputs.changed == 'true'
 
-      - name: point the tap at this checkout
+      # A copy, not a symlink. ci.yml can link the workspace because it never
+      # commits; here brew's own git housekeeping on the tap reverted the
+      # uncommitted rewrite, and the push step then found nothing to commit.
+      # Verifying a copy leaves the workspace alone.
+      - name: copy this checkout into the tap
         if: steps.versions.outputs.changed == 'true'
         run: |
           set -eu
           dir="$(brew --repository)/Library/Taps/dcotelo/homebrew-tap"
           rm -rf "$dir"
-          mkdir -p "$(dirname "$dir")"
-          ln -s "$GITHUB_WORKSPACE" "$dir"
+          mkdir -p "$dir"
+          cp -R "$GITHUB_WORKSPACE"/. "$dir"/
 
       # The same gates ci.yml applies, run before the push rather than after,
       # because the push cannot trigger them.
@@ -117,6 +121,13 @@ jobs:
         run: |
           set -eu
           version="${LATEST#cprof--v}"
+
+          # The rewrite happens before the brew steps, so assert it is still
+          # there. A silent revert must fail loudly rather than reach `git
+          # commit` and read as "nothing to do".
+          grep -q "${LATEST}.tar.gz" Formula/cprof.rb || {
+            echo 'the rewrite did not survive verification' >&2; exit 1; }
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add Formula/cprof.rb
