@@ -1,0 +1,127 @@
+name: bump
+
+# Follows cprof releases and updates the formula's url and sha256.
+#
+# This lives in the tap and pushes to the tap, so GITHUB_TOKEN is enough — no
+# personal access token to create, store, or rotate. The cost is that a release
+# is picked up on the next scheduled run rather than the moment it lands; run
+# the workflow by hand when that matters.
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cprof:
+    # macOS because the bump verifies itself before pushing. A push made with
+    # GITHUB_TOKEN does not trigger ci.yml — GitHub suppresses that to avoid
+    # workflow loops — so a bump that only edited the file would land untested.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: find the newest release, and what the formula pins
+        id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          latest="$(gh release list --repo dcotelo/cprof --limit 1 \
+                      --json tagName --jq '.[0].tagName')"
+          case "$latest" in
+            cprof--v*) ;;
+            *) printf 'unexpected tag shape: %s\n' "$latest" >&2; exit 1 ;;
+          esac
+          current="$(grep -oE 'cprof--v[0-9]+(\.[0-9]+)*' Formula/cprof.rb | head -1)"
+
+          printf 'latest=%s\n'  "$latest"  >> "$GITHUB_OUTPUT"
+          printf 'current=%s\n' "$current" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$current" ]; then
+            printf 'changed=false\n' >> "$GITHUB_OUTPUT"
+            printf 'formula already pins %s\n' "$current"
+          else
+            printf 'changed=true\n' >> "$GITHUB_OUTPUT"
+            printf '%s -> %s\n' "$current" "$latest"
+          fi
+
+      - name: rewrite the url and sha256
+        if: steps.versions.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+          CURRENT: ${{ steps.versions.outputs.current }}
+        run: |
+          set -eu
+          url="https://github.com/dcotelo/cprof/archive/refs/tags/${LATEST}.tar.gz"
+
+          # Fail loudly rather than pinning a sha of a 404 page.
+          curl -fsSL --retry 3 "$url" -o /tmp/cprof.tar.gz
+          sha="$(shasum -a 256 /tmp/cprof.tar.gz | cut -d' ' -f1)"
+
+          # The tag appears only inside the url; the sha256 line is matched on
+          # its own so a future formula field holding a hex string is not hit.
+          sed -i '' \
+            -e "s|${CURRENT}\.tar\.gz|${LATEST}.tar.gz|" \
+            -e "s|^  sha256 \"[a-f0-9]*\"|  sha256 \"${sha}\"|" \
+            Formula/cprof.rb
+
+          grep -q "${LATEST}.tar.gz" Formula/cprof.rb || {
+            echo 'url was not rewritten' >&2; exit 1; }
+          grep -q "sha256 \"${sha}\"" Formula/cprof.rb || {
+            echo 'sha256 was not rewritten' >&2; exit 1; }
+          git --no-pager diff -- Formula/cprof.rb
+
+      - uses: Homebrew/actions/setup-homebrew@master
+        if: steps.versions.outputs.changed == 'true'
+
+      - name: point the tap at this checkout
+        if: steps.versions.outputs.changed == 'true'
+        run: |
+          set -eu
+          dir="$(brew --repository)/Library/Taps/dcotelo/homebrew-tap"
+          rm -rf "$dir"
+          mkdir -p "$(dirname "$dir")"
+          ln -s "$GITHUB_WORKSPACE" "$dir"
+
+      # The same gates ci.yml applies, run before the push rather than after,
+      # because the push cannot trigger them.
+      - name: style and audit
+        if: steps.versions.outputs.changed == 'true'
+        run: |
+          brew style dcotelo/tap
+          brew audit --strict --formula dcotelo/tap/cprof
+
+      - name: install and test
+        if: steps.versions.outputs.changed == 'true'
+        run: |
+          brew install --formula --verbose dcotelo/tap/cprof
+          brew test --verbose cprof
+
+      - name: the bin entry survives its own symlinks
+        if: steps.versions.outputs.changed == 'true'
+        run: |
+          set -eu
+          bin="$(brew --prefix)/bin/cprof"
+          [ -L "$bin" ] || { echo "expected $bin to be a symlink" >&2; exit 1; }
+          case "$("$bin" version 2>&1)" in
+            "cprof "*) ;;
+            *) echo 'version through the symlink failed' >&2; exit 1 ;;
+          esac
+
+      - name: commit and push
+        if: steps.versions.outputs.changed == 'true'
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          set -eu
+          version="${LATEST#cprof--v}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Formula/cprof.rb
+          git commit -m "Update cprof to ${version}
+
+          Installed and tested on a runner before pushing: a push made with
+          GITHUB_TOKEN does not trigger ci.yml, so the checks run here instead."
+          git push origin HEAD
