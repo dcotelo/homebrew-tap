@@ -25,8 +25,17 @@ jobs:
       # pinning a tag here would pin against the runner's brew, not with it.
       - uses: Homebrew/actions/setup-homebrew@master
 
-      - name: tap this checkout
-        run: brew tap dcotelo/tap "$GITHUB_WORKSPACE"
+      # setup-homebrew already registers this repo as a tap pointing at its
+      # GitHub URL, so `brew tap <path>` fails with a remote mismatch. Linking
+      # the checkout into place is what makes brew read the code under review
+      # rather than whatever main currently holds.
+      - name: point the tap at this checkout
+        run: |
+          set -eu
+          dir="$(brew --repository)/Library/Taps/dcotelo/homebrew-tap"
+          rm -rf "$dir"
+          mkdir -p "$(dirname "$dir")"
+          ln -s "$GITHUB_WORKSPACE" "$dir"
 
       - name: style
         run: brew style dcotelo/tap
@@ -45,8 +54,17 @@ jobs:
 
       - uses: Homebrew/actions/setup-homebrew@master
 
-      - name: tap this checkout
-        run: brew tap dcotelo/tap "$GITHUB_WORKSPACE"
+      # setup-homebrew already registers this repo as a tap pointing at its
+      # GitHub URL, so `brew tap <path>` fails with a remote mismatch. Linking
+      # the checkout into place is what makes brew read the code under review
+      # rather than whatever main currently holds.
+      - name: point the tap at this checkout
+        run: |
+          set -eu
+          dir="$(brew --repository)/Library/Taps/dcotelo/homebrew-tap"
+          rm -rf "$dir"
+          mkdir -p "$(dirname "$dir")"
+          ln -s "$GITHUB_WORKSPACE" "$dir"
 
       - name: install
         run: brew install --formula --verbose dcotelo/tap/cprof
