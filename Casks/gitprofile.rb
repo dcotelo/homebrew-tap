@@ -3,24 +3,23 @@ cask "gitprofile" do
   version "0.1.2"
 
   on_macos do
-    on_intel do
-      sha256 "95bb4da81eaf650e4395f83d1639541f5235fbfae8322d80829541898da620cc"
-      url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_darwin_amd64.tar.gz"
-    end
     on_arm do
       sha256 "b0db59142e6dc6871160f2ad9542efcfdf1277a577f1f8eb02e445da19051876"
       url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_darwin_arm64.tar.gz"
     end
-  end
-
-  on_linux do
     on_intel do
-      sha256 "f070696696729b886452121f51fa0c2ac114869b68edb82a8b8c9e5bb781d4e1"
-      url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_linux_amd64.tar.gz"
+      sha256 "95bb4da81eaf650e4395f83d1639541f5235fbfae8322d80829541898da620cc"
+      url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_darwin_amd64.tar.gz"
     end
+  end
+  on_linux do
     on_arm do
       sha256 "ed295232419dcec20acee2ac952fcb5ffc9ffb16864a4c57239aa94136b9c229"
       url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_linux_arm64.tar.gz"
+    end
+    on_intel do
+      sha256 "f070696696729b886452121f51fa0c2ac114869b68edb82a8b8c9e5bb781d4e1"
+      url "https://github.com/dcotelo/gitprofile/releases/download/v#{version}/gitprofile_linux_amd64.tar.gz"
     end
   end
 
@@ -35,11 +34,10 @@ cask "gitprofile" do
   binary "gitprofile"
 
   postflight do
-    if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+    if system_command("/usr/bin/xattr", args: ["-h"]).exit_status.zero?
       system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/gitprofile"]
     end
   end
 
   # No zap stanza required
-
 end

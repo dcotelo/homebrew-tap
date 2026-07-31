@@ -1,0 +1,85 @@
+name: ci
+
+# The formula's first version shipped broken and only a real `brew install`
+# caught it: `libexec.install "statusline"` moves the directory, so a later
+# `pkgshare.install "statusline/segment.sh"` had nothing to find. Style and
+# audit both passed. Installing for real is the only step that would have
+# failed, so this workflow does it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Cheap and covers both formulae and casks, so it runs on its own and fails
+  # fast before anything spends time downloading bottles.
+  syntax:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Homebrew publishes this action and moves it in step with brew itself;
+      # pinning a tag here would pin against the runner's brew, not with it.
+      - uses: Homebrew/actions/setup-homebrew@master
+
+      - name: tap this checkout
+        run: brew tap dcotelo/tap "$GITHUB_WORKSPACE"
+
+      - name: style
+        run: brew style dcotelo/tap
+
+      - name: audit formulae
+        run: brew audit --strict --formula dcotelo/tap/cprof
+
+  # The step that would have caught the broken first version. Casks are not
+  # installed here: they fetch real application bundles and some need an
+  # interactive authorisation, which is not worth the runner time on every push.
+  formula:
+    runs-on: macos-latest
+    needs: syntax
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Homebrew/actions/setup-homebrew@master
+
+      - name: tap this checkout
+        run: brew tap dcotelo/tap "$GITHUB_WORKSPACE"
+
+      - name: install
+        run: brew install --formula --verbose dcotelo/tap/cprof
+
+      - name: test
+        run: brew test --verbose cprof
+
+      # `brew test` runs the formula's own test block. This asserts the thing
+      # that block cannot see: that the binary works through the symlink chain
+      # Homebrew actually creates — bin/cprof -> Cellar -> libexec/scripts.
+      # Before cprof 0.6.1 a symlinked run printed `unset CLAUDE_CONFIG_DIR` on
+      # stdout and exited 0, which a shell function evals, silently selecting
+      # the wrong account. A green install proves nothing about that on its own.
+      - name: the bin entry survives its own symlinks
+        run: |
+          set -eu
+          bin="$(brew --prefix)/bin/cprof"
+          [ -L "$bin" ] || { echo "expected $bin to be a symlink" >&2; exit 1; }
+          out="$("$bin" version 2>&1)"
+          case "$out" in
+            "cprof "*) printf 'ok: %s\n' "$out" ;;
+            *) printf 'version through the symlink said: %s\n' "$out" >&2; exit 1 ;;
+          esac
+          case "$("$bin" env 2>/dev/null)" in
+            *'unset CLAUDE_CONFIG_DIR'*)
+              # With no config this is the correct answer, so it is only a
+              # failure when the stderr line says the library directory is what
+              # went missing.
+              case "$("$bin" env 2>&1 >/dev/null)" in
+                *'cannot locate lib directory'*)
+                  echo 'lib directory unresolved through the symlink' >&2; exit 1 ;;
+              esac ;;
+          esac
+
+      - name: uninstall cleanly
+        run: brew uninstall --formula cprof
