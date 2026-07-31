@@ -107,6 +107,7 @@ jobs:
         if: steps.versions.outputs.changed == 'true'
         env:
           LATEST: ${{ steps.versions.outputs.latest }}
+          GH_PUSH_TOKEN: ${{ github.token }}
         run: |
           set -eu
           version="${LATEST#cprof--v}"
@@ -124,4 +125,7 @@ jobs:
 
           Installed and tested on a runner before pushing: a push made with
           GITHUB_TOKEN does not trigger ci.yml, so the checks run here instead."
-          git push origin HEAD
+          # setup-homebrew strips the credential header actions/checkout
+          # installs, so `git push origin` has no way to authenticate and asks
+          # for a username. Push to an explicit tokenised URL instead.
+          git push "https://x-access-token:${GH_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
