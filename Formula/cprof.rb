@@ -1,8 +1,8 @@
 class Cprof < Formula
   desc "Pick which Claude account a directory uses, per repository"
   homepage "https://github.com/dcotelo/cprof"
-  url "https://github.com/dcotelo/cprof/archive/refs/tags/cprof--v0.12.0.tar.gz"
-  sha256 "1a551117de5c28adc9ee01aba40a23b827504a53559d04ccb077ab377b18781a"
+  url "https://github.com/dcotelo/cprof/archive/refs/tags/cprof--v0.13.0.tar.gz"
+  sha256 "8ecac5e5dccfb0af800b59b7cd1ad6f5d6e879071552af86d6908716308a21ab"
   license "MIT"
   head "https://github.com/dcotelo/cprof.git", branch: "main"
 
